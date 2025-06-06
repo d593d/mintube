@@ -17,6 +17,10 @@ serve(async (req) => {
   try {
     const { niche, targetAudience, contentGoals } = await req.json();
 
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
+
     const prompt = `Generate 5 YouTube video content ideas for a faceless channel in the ${niche} niche.
 Target audience: ${targetAudience}
 Content goals: ${contentGoals}
@@ -47,7 +51,20 @@ Format as JSON array with objects containing: title, estimatedViews, competition
       }),
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenAI API error:', response.status, errorText);
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+
     const data = await response.json();
+    console.log('OpenAI response:', JSON.stringify(data, null, 2));
+    
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      console.error('Unexpected OpenAI response structure:', data);
+      throw new Error('Invalid response from OpenAI API');
+    }
+
     const generatedContent = data.choices[0].message.content;
     
     // Parse the JSON response
@@ -55,6 +72,8 @@ Format as JSON array with objects containing: title, estimatedViews, competition
     try {
       contentIdeas = JSON.parse(generatedContent);
     } catch (parseError) {
+      console.error('JSON parsing error:', parseError);
+      console.error('Raw content:', generatedContent);
       // Fallback if JSON parsing fails
       contentIdeas = [{
         title: "AI-Generated Content Ideas",
