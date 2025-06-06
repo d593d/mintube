@@ -1,0 +1,79 @@
+
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { niche, targetAudience, contentGoals } = await req.json();
+
+    const prompt = `Generate 5 YouTube video content ideas for a faceless channel in the ${niche} niche.
+Target audience: ${targetAudience}
+Content goals: ${contentGoals}
+
+For each idea, provide:
+1. A compelling title
+2. Estimated view range (e.g., "15K-25K")
+3. Competition level (Low/Medium/High)
+4. 3-5 relevant keywords
+5. Difficulty level (Beginner/Intermediate/Advanced)
+6. Brief description
+
+Format as JSON array with objects containing: title, estimatedViews, competition, keywords, difficulty, description`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are a YouTube content strategist specializing in faceless channels. Always respond with valid JSON.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.8,
+      }),
+    });
+
+    const data = await response.json();
+    const generatedContent = data.choices[0].message.content;
+    
+    // Parse the JSON response
+    let contentIdeas;
+    try {
+      contentIdeas = JSON.parse(generatedContent);
+    } catch (parseError) {
+      // Fallback if JSON parsing fails
+      contentIdeas = [{
+        title: "AI-Generated Content Ideas",
+        estimatedViews: "20K-30K",
+        competition: "Medium",
+        keywords: [niche.toLowerCase(), "content", "ideas"],
+        difficulty: "Intermediate",
+        description: "AI-generated content ideas for your channel"
+      }];
+    }
+
+    return new Response(JSON.stringify({ contentIdeas }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error in generate-content-ideas function:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});

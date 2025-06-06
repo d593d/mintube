@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,12 +17,14 @@ import {
   Tag
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAI } from "@/hooks/useAI";
 
 export const ContentPlanner = () => {
   const [niche, setNiche] = useState("");
   const [targetAudience, setTargetAudience] = useState("");
   const [contentGoals, setContentGoals] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const { generateContentIdeas } = useAI();
 
   const [contentIdeas, setContentIdeas] = useState([
     {
@@ -68,7 +69,7 @@ export const ContentPlanner = () => {
     "Travel & Culture"
   ];
 
-  const generateContentIdeas = async () => {
+  const generateAIContentIdeas = async () => {
     if (!niche) {
       toast.error("Please select a niche first");
       return;
@@ -76,33 +77,27 @@ export const ContentPlanner = () => {
 
     setIsGenerating(true);
     
-    // Simulate AI content generation
-    setTimeout(() => {
-      const newIdeas = [
-        {
-          title: `Top 10 ${niche} Secrets Nobody Talks About`,
-          category: niche,
-          difficulty: "Beginner",
-          estimatedViews: "25K-40K",
-          competition: "Medium",
-          keywords: [niche.toLowerCase(), "secrets", "tips"],
-          script: "not_generated"
-        },
-        {
-          title: `The Ultimate Guide to ${niche} for Beginners`,
-          category: niche,
-          difficulty: "Beginner",
-          estimatedViews: "20K-30K",
-          competition: "Low",
-          keywords: [niche.toLowerCase(), "guide", "beginners"],
-          script: "not_generated"
-        }
-      ];
+    try {
+      const result = await generateContentIdeas(niche, targetAudience, contentGoals);
       
-      setContentIdeas([...newIdeas, ...contentIdeas]);
+      if (result.contentIdeas && Array.isArray(result.contentIdeas)) {
+        const newIdeas = result.contentIdeas.map((idea: any) => ({
+          ...idea,
+          category: niche,
+          script: "not_generated"
+        }));
+        
+        setContentIdeas([...newIdeas, ...contentIdeas]);
+        toast.success("AI-generated content ideas added!");
+      } else {
+        throw new Error("Invalid response format");
+      }
+    } catch (error) {
+      console.error('Error generating content ideas:', error);
+      toast.error("Failed to generate content ideas. Please try again.");
+    } finally {
       setIsGenerating(false);
-      toast.success("New content ideas generated!");
-    }, 2000);
+    }
   };
 
   const scheduleContent = (idea: any) => {
@@ -116,7 +111,7 @@ export const ContentPlanner = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Target className="w-5 h-5 text-purple-400" />
-            Content Strategy Setup
+            AI-Powered Content Strategy
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -153,19 +148,19 @@ export const ContentPlanner = () => {
             />
           </div>
           <Button 
-            onClick={generateContentIdeas}
+            onClick={generateAIContentIdeas}
             disabled={isGenerating}
             className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
           >
             {isGenerating ? (
               <>
                 <Brain className="w-4 h-4 mr-2 animate-spin" />
-                Generating Ideas...
+                AI Generating Ideas...
               </>
             ) : (
               <>
                 <Lightbulb className="w-4 h-4 mr-2" />
-                Generate Content Ideas
+                Generate AI Content Ideas
               </>
             )}
           </Button>

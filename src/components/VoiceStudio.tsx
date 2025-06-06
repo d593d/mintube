@@ -17,6 +17,7 @@ import {
   FileAudio
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAI } from "@/hooks/useAI";
 
 export const VoiceStudio = () => {
   const [selectedVoice, setSelectedVoice] = useState("");
@@ -25,6 +26,8 @@ export const VoiceStudio = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
+  const [generatedAudio, setGeneratedAudio] = useState<string | null>(null);
+  const { generateVoice } = useAI();
 
   const voices = [
     { id: "aria", name: "Aria", gender: "Female", accent: "American", quality: "Premium" },
@@ -37,7 +40,7 @@ export const VoiceStudio = () => {
 
   const sampleScript = `Did you know that every night, your brain essentially goes offline for maintenance? What happens during those mysterious 8 hours might shock you. Welcome back to MindScience! I'm your host, and today we're diving deep into the fascinating world of sleep and dreams.`;
 
-  const generateVoice = async () => {
+  const generateAIVoice = async () => {
     if (!selectedVoice) {
       toast.error("Please select a voice first");
       return;
@@ -46,34 +49,76 @@ export const VoiceStudio = () => {
     setIsGenerating(true);
     setGenerationProgress(0);
 
+    // Simulate progress
     const progressInterval = setInterval(() => {
       setGenerationProgress(prev => {
-        if (prev >= 100) {
+        if (prev >= 90) {
           clearInterval(progressInterval);
-          return 100;
+          return 90;
         }
         return prev + 5;
       });
     }, 200);
 
-    setTimeout(() => {
+    try {
+      const result = await generateVoice(sampleScript, selectedVoice, speed[0]);
+      
+      if (result.audioContent) {
+        // Create audio URL from base64
+        const audioBlob = new Blob([
+          new Uint8Array(
+            atob(result.audioContent)
+              .split('')
+              .map(char => char.charCodeAt(0))
+          )
+        ], { type: 'audio/mpeg' });
+        
+        const audioUrl = URL.createObjectURL(audioBlob);
+        setGeneratedAudio(audioUrl);
+        setGenerationProgress(100);
+        toast.success("AI voice generated successfully!");
+      } else {
+        throw new Error("Invalid response format");
+      }
+    } catch (error) {
+      console.error('Error generating voice:', error);
+      toast.error("Failed to generate voice. Please try again.");
+    } finally {
+      clearInterval(progressInterval);
       setIsGenerating(false);
-      setGenerationProgress(100);
-      toast.success("Voice generated successfully!");
-    }, 4000);
+    }
   };
 
   const togglePlayback = () => {
-    setIsPlaying(!isPlaying);
-    if (!isPlaying) {
-      toast.success("Playing voice preview");
+    if (generatedAudio) {
+      const audio = new Audio(generatedAudio);
+      if (!isPlaying) {
+        audio.play();
+        setIsPlaying(true);
+        audio.onended = () => setIsPlaying(false);
+        toast.success("Playing AI-generated voice");
+      } else {
+        audio.pause();
+        setIsPlaying(false);
+        toast.success("Playback paused");
+      }
     } else {
-      toast.success("Playback paused");
+      toast.error("Please generate voice first");
     }
   };
 
   const downloadAudio = () => {
-    toast.success("Audio file downloaded!");
+    if (generatedAudio) {
+      const a = document.createElement('a');
+      a.href = generatedAudio;
+      a.download = `ai-voice-${selectedVoice}-${Date.now()}.mp3`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      toast.success("Audio file downloaded!");
+    } else {
+      toast.error("Please generate voice first");
+    }
   };
 
   return (
@@ -83,7 +128,7 @@ export const VoiceStudio = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Mic className="w-5 h-5 text-purple-400" />
-            Voice Selection
+            AI Voice Selection
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -125,7 +170,7 @@ export const VoiceStudio = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
-            Voice Settings
+            AI Voice Settings
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -190,7 +235,7 @@ export const VoiceStudio = () => {
           {isGenerating && (
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span>Generating audio...</span>
+                <span>AI generating voice...</span>
                 <span>{generationProgress}%</span>
               </div>
               <Progress value={generationProgress} className="h-2" />
@@ -198,19 +243,19 @@ export const VoiceStudio = () => {
           )}
 
           <Button 
-            onClick={generateVoice}
+            onClick={generateAIVoice}
             disabled={isGenerating}
             className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
           >
             {isGenerating ? (
               <>
                 <AudioWaveform className="w-4 h-4 mr-2 animate-pulse" />
-                Generating...
+                AI Generating...
               </>
             ) : (
               <>
                 <Mic className="w-4 h-4 mr-2" />
-                Generate Voice
+                Generate AI Voice
               </>
             )}
           </Button>
@@ -222,7 +267,7 @@ export const VoiceStudio = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Volume2 className="w-5 h-5" />
-            Audio Preview
+            AI Audio Preview
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">

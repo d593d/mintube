@@ -18,6 +18,7 @@ import {
   Eye
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAI } from "@/hooks/useAI";
 
 export const ScriptGenerator = () => {
   const [topic, setTopic] = useState("");
@@ -27,6 +28,13 @@ export const ScriptGenerator = () => {
   const [additionalNotes, setAdditionalNotes] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
+  const [scriptMetrics, setScriptMetrics] = useState({
+    wordCount: 1247,
+    readingTime: "9:32",
+    speakingRate: 130,
+    readability: "Good"
+  });
+  const { generateScript } = useAI();
 
   const [generatedScript, setGeneratedScript] = useState(`
 [HOOK - 0:00-0:15]
@@ -84,7 +92,7 @@ Don't forget to check out our video on lucid dreaming techniques - the link is r
     "Deep Dive (25+ minutes)"
   ];
 
-  const generateScript = async () => {
+  const generateAIScript = async () => {
     if (!topic || !duration || !style) {
       toast.error("Please fill in all required fields");
       return;
@@ -93,22 +101,37 @@ Don't forget to check out our video on lucid dreaming techniques - the link is r
     setIsGenerating(true);
     setGenerationProgress(0);
 
-    // Simulate script generation with progress updates
+    // Simulate progress
     const progressInterval = setInterval(() => {
       setGenerationProgress(prev => {
-        if (prev >= 100) {
+        if (prev >= 90) {
           clearInterval(progressInterval);
-          return 100;
+          return 90;
         }
         return prev + 10;
       });
     }, 200);
 
-    setTimeout(() => {
+    try {
+      const result = await generateScript(topic, duration, style, targetAudience, additionalNotes);
+      
+      if (result.script) {
+        setGeneratedScript(result.script);
+        if (result.metrics) {
+          setScriptMetrics(result.metrics);
+        }
+        setGenerationProgress(100);
+        toast.success("AI script generated successfully!");
+      } else {
+        throw new Error("Invalid response format");
+      }
+    } catch (error) {
+      console.error('Error generating script:', error);
+      toast.error("Failed to generate script. Please try again.");
+    } finally {
+      clearInterval(progressInterval);
       setIsGenerating(false);
-      setGenerationProgress(100);
-      toast.success("Script generated successfully!");
-    }, 2000);
+    }
   };
 
   const copyScript = () => {
@@ -137,7 +160,7 @@ Don't forget to check out our video on lucid dreaming techniques - the link is r
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Wand2 className="w-5 h-5 text-purple-400" />
-              Script Generator
+              AI Script Generator
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -202,7 +225,7 @@ Don't forget to check out our video on lucid dreaming techniques - the link is r
             {isGenerating && (
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span>Generating script...</span>
+                  <span>AI generating script...</span>
                   <span>{generationProgress}%</span>
                 </div>
                 <Progress value={generationProgress} className="h-2" />
@@ -210,19 +233,19 @@ Don't forget to check out our video on lucid dreaming techniques - the link is r
             )}
 
             <Button 
-              onClick={generateScript}
+              onClick={generateAIScript}
               disabled={isGenerating}
               className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
             >
               {isGenerating ? (
                 <>
                   <Wand2 className="w-4 h-4 mr-2 animate-spin" />
-                  Generating...
+                  AI Generating...
                 </>
               ) : (
                 <>
                   <Wand2 className="w-4 h-4 mr-2" />
-                  Generate Script
+                  Generate AI Script
                 </>
               )}
             </Button>
@@ -244,28 +267,28 @@ Don't forget to check out our video on lucid dreaming techniques - the link is r
                   <Clock className="w-4 h-4" />
                   <span className="text-sm text-gray-400">Read Time</span>
                 </div>
-                <div className="text-xl font-bold">9:32</div>
+                <div className="text-xl font-bold">{scriptMetrics.readingTime}</div>
               </div>
               <div className="text-center p-3 bg-gray-800/50 rounded-lg">
                 <div className="flex items-center justify-center gap-2 mb-1">
                   <FileText className="w-4 h-4" />
                   <span className="text-sm text-gray-400">Word Count</span>
                 </div>
-                <div className="text-xl font-bold">1,247</div>
+                <div className="text-xl font-bold">{scriptMetrics.wordCount}</div>
               </div>
               <div className="text-center p-3 bg-gray-800/50 rounded-lg">
                 <div className="flex items-center justify-center gap-2 mb-1">
                   <Volume2 className="w-4 h-4" />
                   <span className="text-sm text-gray-400">Speaking Rate</span>
                 </div>
-                <div className="text-xl font-bold">130 WPM</div>
+                <div className="text-xl font-bold">{scriptMetrics.speakingRate} WPM</div>
               </div>
               <div className="text-center p-3 bg-gray-800/50 rounded-lg">
                 <div className="flex items-center justify-center gap-2 mb-1">
                   <Eye className="w-4 h-4" />
                   <span className="text-sm text-gray-400">Readability</span>
                 </div>
-                <div className="text-xl font-bold text-green-400">Good</div>
+                <div className="text-xl font-bold text-green-400">{scriptMetrics.readability}</div>
               </div>
             </div>
           </CardContent>
@@ -278,7 +301,7 @@ Don't forget to check out our video on lucid dreaming techniques - the link is r
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <FileText className="w-5 h-5" />
-              Generated Script
+              AI Generated Script
             </CardTitle>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={copyScript}>
@@ -300,7 +323,7 @@ Don't forget to check out our video on lucid dreaming techniques - the link is r
           <div className="flex gap-2 mt-4">
             <Button className="flex-1">
               <Volume2 className="w-4 h-4 mr-2" />
-              Generate Voice
+              Generate AI Voice
             </Button>
             <Button variant="outline" className="flex-1">
               <Eye className="w-4 h-4 mr-2" />
