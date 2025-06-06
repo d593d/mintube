@@ -16,8 +16,15 @@ serve(async (req) => {
 
   try {
     const { niche, targetAudience, contentGoals } = await req.json();
+    
+    console.log('Environment check:', {
+      hasOpenAIKey: !!openAIApiKey,
+      keyLength: openAIApiKey ? openAIApiKey.length : 0,
+      keyPrefix: openAIApiKey ? openAIApiKey.substring(0, 10) + '...' : 'none'
+    });
 
     if (!openAIApiKey) {
+      console.error('OpenAI API key not found in environment variables');
       throw new Error('OpenAI API key not configured');
     }
 
@@ -34,6 +41,8 @@ For each idea, provide:
 6. Brief description
 
 Format as JSON array with objects containing: title, estimatedViews, competition, keywords, difficulty, description`;
+
+    console.log('Making request to OpenAI API...');
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
