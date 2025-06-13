@@ -17,11 +17,7 @@ serve(async (req) => {
   try {
     const { niche, targetAudience, contentGoals } = await req.json();
     
-    console.log('Environment check:', {
-      hasOpenAIKey: !!openAIApiKey,
-      keyLength: openAIApiKey ? openAIApiKey.length : 0,
-      keyPrefix: openAIApiKey ? openAIApiKey.substring(0, 10) + '...' : 'none'
-    });
+    console.log('Content Ideas Request:', { niche, targetAudience, contentGoals });
 
     if (!openAIApiKey) {
       console.error('OpenAI API key not found in environment variables');
@@ -67,7 +63,7 @@ Format as JSON array with objects containing: title, estimatedViews, competition
     }
 
     const data = await response.json();
-    console.log('OpenAI response:', JSON.stringify(data, null, 2));
+    console.log('OpenAI response received successfully');
     
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
       console.error('Unexpected OpenAI response structure:', data);
@@ -80,6 +76,7 @@ Format as JSON array with objects containing: title, estimatedViews, competition
     let contentIdeas;
     try {
       contentIdeas = JSON.parse(generatedContent);
+      console.log('Successfully parsed content ideas:', contentIdeas.length, 'ideas generated');
     } catch (parseError) {
       console.error('JSON parsing error:', parseError);
       console.error('Raw content:', generatedContent);
