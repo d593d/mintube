@@ -25,6 +25,7 @@ import { VoiceStudio } from "@/components/VoiceStudio";
 import { VideoAssembly } from "@/components/VideoAssembly";
 import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
 import { AutomationEngine } from "@/components/AutomationEngine";
+import { AutomationConfig } from "@/components/AutomationConfig";
 import { Auth } from "@/components/Auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useVideos } from "@/hooks/useVideos";
@@ -36,6 +37,7 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [configOpen, setConfigOpen] = useState(false);
   
   const { videos, loading: videosLoading } = useVideos();
   const { analytics, loading: analyticsLoading } = useAnalytics();
@@ -178,7 +180,7 @@ const Index = () => {
                         </>
                       )}
                     </Button>
-                    <Button variant="outline" size="lg">
+                    <Button variant="outline" size="lg" onClick={() => setConfigOpen(true)}>
                       <Settings className="w-4 h-4 mr-2" />
                       Configure
                     </Button>
@@ -423,6 +425,9 @@ const Index = () => {
           {renderTabContent()}
         </div>
       </div>
+
+      {/* Configuration Modal */}
+      <AutomationConfig open={configOpen} onOpenChange={setConfigOpen} />
     </div>
   );
 };
