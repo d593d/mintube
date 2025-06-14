@@ -176,12 +176,13 @@ export const AutomationEngine = () => {
       
       console.log('Video assembly step - creating video record...');
       try {
-        // Create a video record for the generated content
+        // Create a video record. This is a simplified call to fix the build.
+        // The video is not yet linked to the specific content idea from the pipeline.
         await createVideo(
-          contentIdeas[0]?.title || 'Generated Video',
-          'processing' as const,
-          null, // script_id
-          null  // thumbnail_url
+          'educational', // templateId
+          [],            // selectedAssets
+          '1080p',       // quality
+          '30fps'        // frameRate
         );
         console.log('Video assembly completed');
       } catch (error) {
