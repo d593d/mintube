@@ -9,7 +9,234 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      channel_analytics: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          total_revenue: number | null
+          total_subscribers: number | null
+          total_views: number | null
+          user_id: string | null
+          videos_published: number | null
+          watch_time_hours: number | null
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          total_revenue?: number | null
+          total_subscribers?: number | null
+          total_views?: number | null
+          user_id?: string | null
+          videos_published?: number | null
+          watch_time_hours?: number | null
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          total_revenue?: number | null
+          total_subscribers?: number | null
+          total_views?: number | null
+          user_id?: string | null
+          videos_published?: number | null
+          watch_time_hours?: number | null
+        }
+        Relationships: []
+      }
+      content_ideas: {
+        Row: {
+          category: string | null
+          competition: string | null
+          created_at: string
+          description: string | null
+          difficulty: string | null
+          estimated_views: string | null
+          id: string
+          keywords: string[] | null
+          script_status: string | null
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          category?: string | null
+          competition?: string | null
+          created_at?: string
+          description?: string | null
+          difficulty?: string | null
+          estimated_views?: string | null
+          id?: string
+          keywords?: string[] | null
+          script_status?: string | null
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          category?: string | null
+          competition?: string | null
+          created_at?: string
+          description?: string | null
+          difficulty?: string | null
+          estimated_views?: string | null
+          id?: string
+          keywords?: string[] | null
+          script_status?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      scripts: {
+        Row: {
+          content_idea_id: string | null
+          created_at: string
+          duration: string | null
+          id: string
+          script_content: string | null
+          style: string | null
+          target_audience: string | null
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          content_idea_id?: string | null
+          created_at?: string
+          duration?: string | null
+          id?: string
+          script_content?: string | null
+          style?: string | null
+          target_audience?: string | null
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          content_idea_id?: string | null
+          created_at?: string
+          duration?: string | null
+          id?: string
+          script_content?: string | null
+          style?: string | null
+          target_audience?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scripts_content_idea_id_fkey"
+            columns: ["content_idea_id"]
+            isOneToOne: false
+            referencedRelation: "content_ideas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      videos: {
+        Row: {
+          comments: number | null
+          created_at: string
+          id: string
+          likes: number | null
+          published_at: string | null
+          revenue: number | null
+          script_id: string | null
+          status: string | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+          user_id: string | null
+          video_url: string | null
+          views: number | null
+          youtube_video_id: string | null
+        }
+        Insert: {
+          comments?: number | null
+          created_at?: string
+          id?: string
+          likes?: number | null
+          published_at?: string | null
+          revenue?: number | null
+          script_id?: string | null
+          status?: string | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+          user_id?: string | null
+          video_url?: string | null
+          views?: number | null
+          youtube_video_id?: string | null
+        }
+        Update: {
+          comments?: number | null
+          created_at?: string
+          id?: string
+          likes?: number | null
+          published_at?: string | null
+          revenue?: number | null
+          script_id?: string | null
+          status?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+          video_url?: string | null
+          views?: number | null
+          youtube_video_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "videos_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_generations: {
+        Row: {
+          audio_url: string | null
+          created_at: string
+          duration: number | null
+          id: string
+          script_id: string | null
+          user_id: string | null
+          voice_id: string
+        }
+        Insert: {
+          audio_url?: string | null
+          created_at?: string
+          duration?: number | null
+          id?: string
+          script_id?: string | null
+          user_id?: string | null
+          voice_id: string
+        }
+        Update: {
+          audio_url?: string | null
+          created_at?: string
+          duration?: number | null
+          id?: string
+          script_id?: string | null
+          user_id?: string | null
+          voice_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_generations_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

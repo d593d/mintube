@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,30 +16,49 @@ import {
   Brain,
   Calendar,
   BarChart3,
-  Zap
+  Zap,
+  LogOut,
+  Loader2
 } from "lucide-react";
 import { ContentPlanner } from "@/components/ContentPlanner";
 import { ScriptGenerator } from "@/components/ScriptGenerator";
 import { VoiceStudio } from "@/components/VoiceStudio";
 import { VideoAssembly } from "@/components/VideoAssembly";
 import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
+import { Auth } from "@/components/Auth";
+import { supabase } from "@/integrations/supabase/client";
+import { useVideos } from "@/hooks/useVideos";
+import { useAnalytics } from "@/hooks/useAnalytics";
+import { toast } from "sonner";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("overview");
-  const [automationStatus, setAutomationStatus] = useState("idle"); // idle, running, paused
+  const [automationStatus, setAutomationStatus] = useState("idle");
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
+  const { videos, loading: videosLoading } = useVideos();
+  const { analytics, loading: analyticsLoading } = useAnalytics();
 
-  const stats = [
-    { label: "Videos Generated", value: "47", change: "+12%" },
-    { label: "Total Views", value: "125.3K", change: "+8.5%" },
-    { label: "Revenue", value: "$342", change: "+15%" },
-    { label: "Automation Hours", value: "156", change: "+23%" }
-  ];
+  useEffect(() => {
+    // Check current user session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user || null);
+      setLoading(false);
+    });
 
-  const recentVideos = [
-    { title: "The Science of Sleep: Why We Dream", status: "Published", views: "12.4K", date: "2 hours ago" },
-    { title: "Ancient Mysteries: Lost Civilizations", status: "Processing", views: "-", date: "Processing" },
-    { title: "Future Technology: AI Revolution", status: "Queued", views: "-", date: "In queue" },
-  ];
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    toast.success("Signed out successfully");
+  };
 
   const toggleAutomation = () => {
     if (automationStatus === "idle") {
@@ -50,6 +69,50 @@ const Index = () => {
       setAutomationStatus("running");
     }
   };
+
+  // Calculate stats from real data
+  const stats = [
+    { 
+      label: "Videos Generated", 
+      value: videos.length.toString(), 
+      change: "+12%" 
+    },
+    { 
+      label: "Total Views", 
+      value: videos.reduce((sum, video) => sum + video.views, 0).toLocaleString(), 
+      change: "+8.5%" 
+    },
+    { 
+      label: "Revenue", 
+      value: `$${videos.reduce((sum, video) => sum + video.revenue, 0).toFixed(2)}`, 
+      change: "+15%" 
+    },
+    { 
+      label: "Active Videos", 
+      value: videos.filter(video => video.status === 'published').length.toString(), 
+      change: "+23%" 
+    }
+  ];
+
+  // Get recent videos from real data
+  const recentVideos = videos.slice(0, 3).map(video => ({
+    title: video.title,
+    status: video.status === 'published' ? 'Published' : video.status === 'processing' ? 'Processing' : 'Queued',
+    views: video.views > 0 ? `${(video.views / 1000).toFixed(1)}K` : "-",
+    date: video.published_at ? new Date(video.published_at).toLocaleDateString() : "Processing"
+  }));
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900/20 to-blue-900/20 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Auth />;
+  }
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -139,28 +202,40 @@ const Index = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {recentVideos.map((video, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-gray-800/50 hover:bg-gray-800/70 transition-colors">
-                        <div className="flex-1">
-                          <h4 className="font-medium">{video.title}</h4>
-                          <div className="flex items-center gap-4 text-sm text-gray-400 mt-1">
-                            <Badge variant={
-                              video.status === "Published" ? "default" : 
-                              video.status === "Processing" ? "secondary" : "outline"
-                            }>
-                              {video.status}
-                            </Badge>
-                            <span>{video.views} views</span>
-                            <span>{video.date}</span>
+                  {videosLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                      <span className="ml-2">Loading videos...</span>
+                    </div>
+                  ) : recentVideos.length === 0 ? (
+                    <div className="text-center py-8 text-gray-400">
+                      <Video className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No videos yet. Start by generating content ideas!</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {recentVideos.map((video, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-gray-800/50 hover:bg-gray-800/70 transition-colors">
+                          <div className="flex-1">
+                            <h4 className="font-medium">{video.title}</h4>
+                            <div className="flex items-center gap-4 text-sm text-gray-400 mt-1">
+                              <Badge variant={
+                                video.status === "Published" ? "default" : 
+                                video.status === "Processing" ? "secondary" : "outline"
+                              }>
+                                {video.status}
+                              </Badge>
+                              <span>{video.views} views</span>
+                              <span>{video.date}</span>
+                            </div>
                           </div>
+                          <Button variant="ghost" size="sm">
+                            <TrendingUp className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <Button variant="ghost" size="sm">
-                          <TrendingUp className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -262,6 +337,10 @@ const Index = () => {
               <Zap className="w-3 h-3 mr-1" />
               AI Powered
             </Badge>
+            <Button variant="outline" onClick={handleSignOut}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
           </div>
         </div>
 
