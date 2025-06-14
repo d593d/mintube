@@ -11,7 +11,7 @@ import {
   Play, 
   Pause, 
   Download,
-  Waveform,
+  AudioWaveform,
   Volume2,
   Clock,
   FileAudio,
@@ -186,7 +186,7 @@ export const VoiceStudio = () => {
               </>
             ) : (
               <>
-                <Waveform className="w-4 h-4 mr-2" />
+                <AudioWaveform className="w-4 h-4 mr-2" />
                 Generate AI Voice
               </>
             )}
