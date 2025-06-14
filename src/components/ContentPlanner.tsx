@@ -80,6 +80,13 @@ export const ContentPlanner = () => {
     toast.success(`"${idea.title}" scheduled for production`);
   };
 
+  const scrollToStrategy = () => {
+    const strategySection = document.getElementById('content-strategy-section');
+    if (strategySection) {
+      strategySection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -92,7 +99,7 @@ export const ContentPlanner = () => {
   return (
     <div className="space-y-6">
       {/* Content Strategy Setup */}
-      <Card className="bg-gradient-to-br from-purple-900/10 to-blue-900/10 border-purple-500/20">
+      <Card id="content-strategy-section" className="bg-gradient-to-br from-purple-900/10 to-blue-900/10 border-purple-500/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Target className="w-5 h-5 text-purple-400" />
@@ -160,7 +167,7 @@ export const ContentPlanner = () => {
             <h3 className="text-lg font-semibold mb-2">No Content Ideas Yet</h3>
             <p className="text-gray-400 mb-4">Generate your first AI-powered content ideas to get started</p>
             <Button 
-              onClick={() => document.querySelector('[data-niche-select]')?.focus()}
+              onClick={scrollToStrategy}
               variant="outline"
             >
               Start Creating Ideas
