@@ -9,6 +9,124 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      automation_jobs: {
+        Row: {
+          completed_at: string | null
+          content_idea_id: string | null
+          created_at: string
+          current_step: string | null
+          error_message: string | null
+          id: string
+          job_type: string
+          progress: number | null
+          script_id: string | null
+          started_at: string | null
+          status: string
+          total_steps: number | null
+          updated_at: string
+          user_id: string
+          video_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          content_idea_id?: string | null
+          created_at?: string
+          current_step?: string | null
+          error_message?: string | null
+          id?: string
+          job_type: string
+          progress?: number | null
+          script_id?: string | null
+          started_at?: string | null
+          status?: string
+          total_steps?: number | null
+          updated_at?: string
+          user_id: string
+          video_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          content_idea_id?: string | null
+          created_at?: string
+          current_step?: string | null
+          error_message?: string | null
+          id?: string
+          job_type?: string
+          progress?: number | null
+          script_id?: string | null
+          started_at?: string | null
+          status?: string
+          total_steps?: number | null
+          updated_at?: string
+          user_id?: string
+          video_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_jobs_content_idea_id_fkey"
+            columns: ["content_idea_id"]
+            isOneToOne: false
+            referencedRelation: "content_ideas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_jobs_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_jobs_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automation_settings: {
+        Row: {
+          auto_assemble_videos: boolean | null
+          auto_generate_ideas: boolean | null
+          auto_generate_scripts: boolean | null
+          auto_generate_voice: boolean | null
+          auto_upload_youtube: boolean | null
+          created_at: string
+          generation_frequency: string | null
+          id: string
+          is_enabled: boolean | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_assemble_videos?: boolean | null
+          auto_generate_ideas?: boolean | null
+          auto_generate_scripts?: boolean | null
+          auto_generate_voice?: boolean | null
+          auto_upload_youtube?: boolean | null
+          created_at?: string
+          generation_frequency?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auto_assemble_videos?: boolean | null
+          auto_generate_ideas?: boolean | null
+          auto_generate_scripts?: boolean | null
+          auto_generate_voice?: boolean | null
+          auto_upload_youtube?: boolean | null
+          created_at?: string
+          generation_frequency?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       channel_analytics: {
         Row: {
           created_at: string
@@ -242,7 +360,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      update_automation_job_progress: {
+        Args: {
+          job_id: string
+          new_status: string
+          new_step?: string
+          new_progress?: number
+          error_msg?: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

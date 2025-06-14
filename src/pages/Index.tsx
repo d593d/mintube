@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,20 +24,22 @@ import { ScriptGenerator } from "@/components/ScriptGenerator";
 import { VoiceStudio } from "@/components/VoiceStudio";
 import { VideoAssembly } from "@/components/VideoAssembly";
 import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
+import { AutomationEngine } from "@/components/AutomationEngine";
 import { Auth } from "@/components/Auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useVideos } from "@/hooks/useVideos";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { useAutomation } from "@/hooks/useAutomation";
 import { toast } from "sonner";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("overview");
-  const [automationStatus, setAutomationStatus] = useState("idle");
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   
   const { videos, loading: videosLoading } = useVideos();
   const { analytics, loading: analyticsLoading } = useAnalytics();
+  const { settings, currentJob, startAutomation, pauseAutomation, createJob } = useAutomation();
 
   useEffect(() => {
     // Check current user session
@@ -60,13 +61,13 @@ const Index = () => {
     toast.success("Signed out successfully");
   };
 
-  const toggleAutomation = () => {
-    if (automationStatus === "idle") {
-      setAutomationStatus("running");
-    } else if (automationStatus === "running") {
-      setAutomationStatus("paused");
+  const handleToggleAutomation = async () => {
+    if (!settings) return;
+
+    if (settings.is_enabled && currentJob?.status === 'running') {
+      await pauseAutomation();
     } else {
-      setAutomationStatus("running");
+      await startAutomation();
     }
   };
 
@@ -101,6 +102,17 @@ const Index = () => {
     views: video.views > 0 ? `${(video.views / 1000).toFixed(1)}K` : "-",
     date: video.published_at ? new Date(video.published_at).toLocaleDateString() : "Processing"
   }));
+
+  // Determine automation status
+  const getAutomationStatus = () => {
+    if (!settings) return "loading";
+    if (!settings.is_enabled) return "idle";
+    if (currentJob?.status === 'running') return "running";
+    if (currentJob?.status === 'paused') return "paused";
+    return "idle";
+  };
+
+  const automationStatus = getAutomationStatus();
 
   if (loading) {
     return (
@@ -145,8 +157,9 @@ const Index = () => {
                 <CardContent className="space-y-4">
                   <div className="flex items-center gap-4">
                     <Button 
-                      onClick={toggleAutomation}
+                      onClick={handleToggleAutomation}
                       size="lg"
+                      disabled={!settings}
                       className={`${
                         automationStatus === "running" 
                           ? "bg-red-600 hover:bg-red-700" 
@@ -171,13 +184,13 @@ const Index = () => {
                     </Button>
                   </div>
                   
-                  {automationStatus === "running" && (
+                  {currentJob && currentJob.status === "running" && (
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
-                        <span>Current Task: Generating script for "Space Exploration"</span>
-                        <span>73%</span>
+                        <span>Current Task: {currentJob.current_step || 'Processing...'}</span>
+                        <span>{currentJob.progress}%</span>
                       </div>
-                      <Progress value={73} className="h-2" />
+                      <Progress value={currentJob.progress} className="h-2" />
                     </div>
                   )}
 
@@ -247,19 +260,35 @@ const Index = () => {
                   <CardTitle className="text-lg">Quick Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button className="w-full justify-start" variant="ghost" onClick={() => setActiveTab("planner")}>
+                  <Button 
+                    className="w-full justify-start" 
+                    variant="ghost" 
+                    onClick={() => createJob('generate_content_ideas')}
+                  >
                     <Brain className="w-4 h-4 mr-2" />
                     Generate Content Ideas
                   </Button>
-                  <Button className="w-full justify-start" variant="ghost" onClick={() => setActiveTab("scripts")}>
+                  <Button 
+                    className="w-full justify-start" 
+                    variant="ghost" 
+                    onClick={() => setActiveTab("scripts")}
+                  >
                     <FileText className="w-4 h-4 mr-2" />
                     Create New Script
                   </Button>
-                  <Button className="w-full justify-start" variant="ghost" onClick={() => setActiveTab("voice")}>
+                  <Button 
+                    className="w-full justify-start" 
+                    variant="ghost" 
+                    onClick={() => setActiveTab("voice")}
+                  >
                     <Mic className="w-4 h-4 mr-2" />
                     Voice Synthesis
                   </Button>
-                  <Button className="w-full justify-start" variant="ghost" onClick={() => setActiveTab("assembly")}>
+                  <Button 
+                    className="w-full justify-start" 
+                    variant="ghost" 
+                    onClick={() => setActiveTab("assembly")}
+                  >
                     <Video className="w-4 h-4 mr-2" />
                     Assemble Video
                   </Button>
@@ -277,39 +306,55 @@ const Index = () => {
                 <CardContent>
                   <div className="space-y-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        settings?.auto_generate_ideas ? 'bg-green-600' : 'bg-gray-600'
+                      }`}>
                         <Brain className="w-4 h-4" />
                       </div>
                       <div className="flex-1">
                         <div className="text-sm font-medium">Content Planning</div>
-                        <div className="text-xs text-gray-400">Active</div>
+                        <div className="text-xs text-gray-400">
+                          {settings?.auto_generate_ideas ? 'Enabled' : 'Disabled'}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        settings?.auto_generate_scripts ? 'bg-blue-600' : 'bg-gray-600'
+                      }`}>
                         <FileText className="w-4 h-4" />
                       </div>
                       <div className="flex-1">
                         <div className="text-sm font-medium">Script Generation</div>
-                        <div className="text-xs text-gray-400">Processing</div>
+                        <div className="text-xs text-gray-400">
+                          {settings?.auto_generate_scripts ? 'Enabled' : 'Disabled'}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        settings?.auto_generate_voice ? 'bg-purple-600' : 'bg-gray-600'
+                      }`}>
                         <Mic className="w-4 h-4" />
                       </div>
                       <div className="flex-1">
                         <div className="text-sm font-medium">Voice Synthesis</div>
-                        <div className="text-xs text-gray-400">Queued</div>
+                        <div className="text-xs text-gray-400">
+                          {settings?.auto_generate_voice ? 'Enabled' : 'Disabled'}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        settings?.auto_assemble_videos ? 'bg-orange-600' : 'bg-gray-600'
+                      }`}>
                         <Video className="w-4 h-4" />
                       </div>
                       <div className="flex-1">
                         <div className="text-sm font-medium">Video Assembly</div>
-                        <div className="text-xs text-gray-400">Queued</div>
+                        <div className="text-xs text-gray-400">
+                          {settings?.auto_assemble_videos ? 'Enabled' : 'Disabled'}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -323,6 +368,9 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900/20 to-blue-900/20">
+      {/* Hidden automation engine component */}
+      <AutomationEngine />
+      
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
