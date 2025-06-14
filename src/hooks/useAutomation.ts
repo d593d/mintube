@@ -98,6 +98,8 @@ export const useAutomation = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
+      console.log('Creating automation job:', jobType);
+
       const { data, error } = await supabase
         .from('automation_jobs')
         .insert([{
@@ -105,7 +107,8 @@ export const useAutomation = () => {
           job_type: jobType,
           content_idea_id: contentIdeaId,
           current_step: 'Initializing...',
-          progress: 0
+          progress: 0,
+          status: 'running'
         }])
         .select()
         .single();
@@ -115,7 +118,8 @@ export const useAutomation = () => {
       if (data) {
         setJobs(prev => [data, ...prev]);
         setCurrentJob(data);
-        toast.success(`${jobType} automation started`);
+        console.log('Automation job created:', data);
+        toast.success(`${jobType.replace('_', ' ')} automation started`);
         return data;
       }
     } catch (error: any) {
@@ -127,6 +131,8 @@ export const useAutomation = () => {
 
   const updateJobProgress = async (jobId: string, status: string, step?: string, progress?: number, errorMsg?: string) => {
     try {
+      console.log('Updating job progress:', { jobId, status, step, progress, errorMsg });
+      
       const { error } = await supabase.rpc('update_automation_job_progress', {
         job_id: jobId,
         new_status: status,
@@ -159,6 +165,11 @@ export const useAutomation = () => {
           error_message: errorMsg || prev.error_message
         } : null);
       }
+
+      // Clear current job if completed or failed
+      if (status === 'completed' || status === 'failed') {
+        setTimeout(() => setCurrentJob(null), 2000);
+      }
     } catch (error: any) {
       console.error('Error updating job progress:', error);
     }
@@ -189,8 +200,12 @@ export const useAutomation = () => {
   };
 
   const startAutomation = async () => {
-    if (!settings) return;
+    if (!settings) {
+      toast.error('Settings not loaded');
+      return;
+    }
     
+    console.log('Starting automation with settings:', settings);
     await updateSettings({ is_enabled: true });
     await createJob('full_pipeline');
   };
@@ -198,6 +213,7 @@ export const useAutomation = () => {
   const pauseAutomation = async () => {
     if (!settings) return;
     
+    console.log('Pausing automation');
     await updateSettings({ is_enabled: false });
     
     if (currentJob && currentJob.status === 'running') {

@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import { useAutomation } from "@/hooks/useAutomation";
 import { useAI } from "@/hooks/useAI";
@@ -9,7 +8,7 @@ import { toast } from "sonner";
 export const AutomationEngine = () => {
   const { currentJob, updateJobProgress, settings } = useAutomation();
   const { generateContentIdeas, generateScript, generateVoice } = useAI();
-  const { contentIdeas, saveContentIdeas, updateScriptStatus } = useContentIdeas();
+  const { contentIdeas, saveContentIdeas, updateScriptStatus, refetch: refetchContentIdeas } = useContentIdeas();
   const { createVideo } = useVideoAssembly();
 
   useEffect(() => {
@@ -68,6 +67,7 @@ export const AutomationEngine = () => {
     if (settings.auto_upload_youtube) steps.push('youtube_upload');
 
     const totalSteps = steps.length;
+    console.log('Running full pipeline with steps:', steps);
     
     // Step 1: Generate content ideas (if enabled)
     if (settings.auto_generate_ideas) {
@@ -79,6 +79,7 @@ export const AutomationEngine = () => {
         Math.round((currentStepIndex / totalSteps) * 100)
       );
       
+      console.log('Generating content ideas...');
       const result = await generateContentIdeas(
         'Educational Content',
         'General audience',
@@ -98,6 +99,8 @@ export const AutomationEngine = () => {
         }));
         
         await saveContentIdeas(newIdeas);
+        await refetchContentIdeas(); // Refresh the content ideas
+        console.log('Content ideas generated and saved:', newIdeas.length);
       }
     }
 
@@ -111,17 +114,38 @@ export const AutomationEngine = () => {
         Math.round((currentStepIndex / totalSteps) * 100)
       );
       
-      const latestIdeas = await new Promise(resolve => {
-        setTimeout(() => resolve(contentIdeas), 1000);
-      });
+      // Wait a moment for the content ideas to be available
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      await refetchContentIdeas();
       
-      if (Array.isArray(latestIdeas) && latestIdeas.length > 0) {
+      // Get the latest content ideas
+      const latestIdeas = contentIdeas.filter(idea => idea.script_status === 'not_generated');
+      
+      if (latestIdeas.length > 0) {
         const firstIdea = latestIdeas[0];
+        console.log('Generating script for idea:', firstIdea.title);
         await updateScriptStatus(firstIdea.id, 'generating');
         
-        // Simulate script generation with actual AI call
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        await updateScriptStatus(firstIdea.id, 'generated');
+        try {
+          const scriptResult = await generateScript(
+            firstIdea.title,
+            '5-10 minutes',
+            'Educational',
+            'General audience',
+            firstIdea.description
+          );
+          
+          if (scriptResult.script) {
+            await updateScriptStatus(firstIdea.id, 'generated');
+            console.log('Script generated successfully');
+          }
+        } catch (error) {
+          console.error('Script generation failed:', error);
+          await updateScriptStatus(firstIdea.id, 'failed');
+          throw error;
+        }
+      } else {
+        console.log('No content ideas available for script generation');
       }
     }
 
@@ -135,8 +159,9 @@ export const AutomationEngine = () => {
         Math.round((currentStepIndex / totalSteps) * 100)
       );
       
-      // Simulate voice synthesis
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('Voice synthesis step - simulating voice generation...');
+      // For now, simulate voice synthesis since we need actual script content
+      await new Promise(resolve => setTimeout(resolve, 3000));
     }
 
     // Step 4: Video assembly (if enabled)
@@ -149,8 +174,21 @@ export const AutomationEngine = () => {
         Math.round((currentStepIndex / totalSteps) * 100)
       );
       
-      // Simulate video assembly
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('Video assembly step - creating video record...');
+      try {
+        // Create a video record for the generated content
+        const videoData = {
+          title: contentIdeas[0]?.title || 'Generated Video',
+          status: 'processing' as const,
+          script_id: null // We would need to track the actual script ID
+        };
+        
+        await createVideo(videoData);
+        console.log('Video assembly completed');
+      } catch (error) {
+        console.error('Video assembly failed:', error);
+        // Continue pipeline even if video creation fails
+      }
     }
 
     // Step 5: YouTube upload (if enabled)
@@ -163,13 +201,15 @@ export const AutomationEngine = () => {
         Math.round((currentStepIndex / totalSteps) * 100)
       );
       
+      console.log('YouTube upload step - simulating upload...');
       // Simulate YouTube upload
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      await new Promise(resolve => setTimeout(resolve, 4000));
     }
 
     // Complete
     await updateJobProgress(currentJob.id, 'completed', 'Pipeline completed successfully', 100);
     toast.success('Automation pipeline completed successfully!');
+    console.log('Full pipeline completed successfully');
   };
 
   const generateContentIdeasJob = async () => {
