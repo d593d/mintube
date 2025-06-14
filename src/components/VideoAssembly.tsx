@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Video, 
   Image, 
@@ -17,21 +18,20 @@ import {
   Settings,
   Layers,
   Clock,
-  Palette
+  Palette,
+  Loader2
 } from "lucide-react";
 import { toast } from "sonner";
+import { useVideoAssembly } from "@/hooks/useVideoAssembly";
 
 export const VideoAssembly = () => {
+  const { mediaAssets, templates, loading, createVideo } = useVideoAssembly();
   const [isAssembling, setIsAssembling] = useState(false);
   const [assemblyProgress, setAssemblyProgress] = useState(0);
   const [selectedTemplate, setSelectedTemplate] = useState("");
-
-  const templates = [
-    { id: "minimal", name: "Minimal Clean", style: "Clean typography, subtle animations" },
-    { id: "scientific", name: "Scientific", style: "Diagrams, charts, professional" },
-    { id: "storytelling", name: "Storytelling", style: "Cinematic, narrative flow" },
-    { id: "educational", name: "Educational", style: "Clear structure, highlights" }
-  ];
+  const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
+  const [outputQuality, setOutputQuality] = useState("1080p");
+  const [frameRate, setFrameRate] = useState("30fps");
 
   const assemblySteps = [
     { name: "Loading assets", completed: true },
@@ -41,12 +41,23 @@ export const VideoAssembly = () => {
     { name: "Rendering video", completed: false }
   ];
 
-  const mediaAssets = [
-    { type: "audio", name: "narration.mp3", duration: "9:32", size: "4.2 MB", status: "ready" },
-    { type: "script", name: "script.txt", duration: "9:32", size: "12 KB", status: "ready" },
-    { type: "background", name: "space-bg.mp4", duration: "10:00", size: "45 MB", status: "ready" },
-    { type: "music", name: "ambient.mp3", duration: "10:00", size: "8.1 MB", status: "ready" }
-  ];
+  const getAssetIcon = (type: string) => {
+    switch (type) {
+      case "audio": return <FileAudio className="w-4 h-4" />;
+      case "script": return <Type className="w-4 h-4" />;
+      case "background": return <Video className="w-4 h-4" />;
+      case "music": return <FileAudio className="w-4 h-4" />;
+      default: return <Image className="w-4 h-4" />;
+    }
+  };
+
+  const handleAssetToggle = (assetId: string) => {
+    setSelectedAssets(prev => 
+      prev.includes(assetId) 
+        ? prev.filter(id => id !== assetId)
+        : [...prev, assetId]
+    );
+  };
 
   const assembleVideo = async () => {
     if (!selectedTemplate) {
@@ -54,25 +65,48 @@ export const VideoAssembly = () => {
       return;
     }
 
+    if (selectedAssets.length === 0) {
+      toast.error("Please select at least one media asset");
+      return;
+    }
+
     setIsAssembling(true);
     setAssemblyProgress(0);
 
-    const progressInterval = setInterval(() => {
-      setAssemblyProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(progressInterval);
-          return 100;
-        }
-        return prev + 2;
-      });
-    }, 300);
+    try {
+      // Start video creation
+      await createVideo(selectedTemplate, selectedAssets, outputQuality, frameRate);
 
-    setTimeout(() => {
+      // Simulate assembly progress
+      const progressInterval = setInterval(() => {
+        setAssemblyProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(progressInterval);
+            return 100;
+          }
+          return prev + 2;
+        });
+      }, 300);
+
+      setTimeout(() => {
+        setIsAssembling(false);
+        setAssemblyProgress(100);
+        toast.success("Video assembled successfully!");
+      }, 15000);
+    } catch (error) {
       setIsAssembling(false);
-      setAssemblyProgress(100);
-      toast.success("Video assembled successfully!");
-    }, 15000);
+      setAssemblyProgress(0);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin" />
+        <span className="ml-2">Loading media assets...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -107,29 +141,38 @@ export const VideoAssembly = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Layers className="w-5 h-5" />
-            Media Assets
+            Media Assets ({mediaAssets.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {mediaAssets.map((asset, index) => (
-            <div key={index} className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg">
-              <div className="w-8 h-8 rounded bg-gray-700 flex items-center justify-center">
-                {asset.type === "audio" && <FileAudio className="w-4 h-4" />}
-                {asset.type === "script" && <Type className="w-4 h-4" />}
-                {asset.type === "background" && <Video className="w-4 h-4" />}
-                {asset.type === "music" && <FileAudio className="w-4 h-4" />}
-              </div>
-              <div className="flex-1">
-                <div className="text-sm font-medium">{asset.name}</div>
-                <div className="text-xs text-gray-400">
-                  {asset.duration} • {asset.size}
-                </div>
-              </div>
-              <Badge variant={asset.status === "ready" ? "default" : "secondary"}>
-                {asset.status}
-              </Badge>
+          {mediaAssets.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <Layers className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No media assets available</p>
+              <p className="text-sm">Create scripts and generate voices first</p>
             </div>
-          ))}
+          ) : (
+            mediaAssets.map((asset) => (
+              <div key={asset.id} className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg">
+                <Checkbox
+                  checked={selectedAssets.includes(asset.id)}
+                  onCheckedChange={() => handleAssetToggle(asset.id)}
+                />
+                <div className="w-8 h-8 rounded bg-gray-700 flex items-center justify-center">
+                  {getAssetIcon(asset.type)}
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium">{asset.name}</div>
+                  <div className="text-xs text-gray-400">
+                    {asset.duration} • {asset.size}
+                  </div>
+                </div>
+                <Badge variant={asset.status === "ready" ? "default" : "secondary"}>
+                  {asset.status}
+                </Badge>
+              </div>
+            ))
+          )}
 
           <Button variant="outline" className="w-full">
             <Upload className="w-4 h-4 mr-2" />
@@ -149,7 +192,7 @@ export const VideoAssembly = () => {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Output Quality</label>
-            <Select defaultValue="1080p">
+            <Select value={outputQuality} onValueChange={setOutputQuality}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -163,7 +206,7 @@ export const VideoAssembly = () => {
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Frame Rate</label>
-            <Select defaultValue="30fps">
+            <Select value={frameRate} onValueChange={setFrameRate}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -173,6 +216,10 @@ export const VideoAssembly = () => {
                 <SelectItem value="60fps">60 FPS (Smooth)</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="text-sm text-gray-400">
+            Selected assets: {selectedAssets.length}
           </div>
 
           {isAssembling && (
@@ -201,7 +248,7 @@ export const VideoAssembly = () => {
 
           <Button 
             onClick={assembleVideo}
-            disabled={isAssembling}
+            disabled={isAssembling || !selectedTemplate || selectedAssets.length === 0}
             className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
           >
             {isAssembling ? (
@@ -252,7 +299,10 @@ export const VideoAssembly = () => {
               <Video className="w-16 h-16 mx-auto mb-4 text-gray-600" />
               <div className="text-gray-400">Video preview will appear here</div>
               <div className="text-sm text-gray-500 mt-2">
-                Select a template and assemble to generate preview
+                {selectedTemplate && selectedAssets.length > 0 
+                  ? "Click 'Assemble Video' to generate preview"
+                  : "Select a template and assets to enable assembly"
+                }
               </div>
             </div>
           </div>
@@ -262,16 +312,19 @@ export const VideoAssembly = () => {
               <div className="text-gray-400">Duration</div>
               <div className="font-medium flex items-center justify-center gap-1">
                 <Clock className="w-4 h-4" />
-                9:32
+                {mediaAssets.find(a => a.type === 'script')?.duration || "N/A"}
               </div>
             </div>
             <div className="text-center p-3 bg-gray-800/50 rounded">
               <div className="text-gray-400">Resolution</div>
-              <div className="font-medium">1920x1080</div>
+              <div className="font-medium">
+                {outputQuality === '720p' ? '1280x720' : 
+                 outputQuality === '4k' ? '3840x2160' : '1920x1080'}
+              </div>
             </div>
             <div className="text-center p-3 bg-gray-800/50 rounded">
-              <div className="text-gray-400">File Size</div>
-              <div className="font-medium">156 MB</div>
+              <div className="text-gray-400">Frame Rate</div>
+              <div className="font-medium">{frameRate.toUpperCase()}</div>
             </div>
             <div className="text-center p-3 bg-gray-800/50 rounded">
               <div className="text-gray-400">Format</div>
