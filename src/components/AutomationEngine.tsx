@@ -177,13 +177,12 @@ export const AutomationEngine = () => {
       console.log('Video assembly step - creating video record...');
       try {
         // Create a video record for the generated content
-        const videoData = {
-          title: contentIdeas[0]?.title || 'Generated Video',
-          status: 'processing' as const,
-          script_id: null // We would need to track the actual script ID
-        };
-        
-        await createVideo(videoData);
+        await createVideo(
+          contentIdeas[0]?.title || 'Generated Video',
+          'processing' as const,
+          null, // script_id
+          null  // thumbnail_url
+        );
         console.log('Video assembly completed');
       } catch (error) {
         console.error('Video assembly failed:', error);
