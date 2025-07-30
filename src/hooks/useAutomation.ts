@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
 
 export interface AutomationJob {
   id: string;
@@ -55,7 +56,7 @@ export const useAutomation = () => {
       const runningJob = data?.find(job => job.status === 'running');
       setCurrentJob(runningJob || null);
     } catch (error: any) {
-      console.error('Error fetching automation jobs:', error);
+      logger.error('Failed to fetch automation jobs', error);
       toast.error('Failed to load automation jobs');
     }
   };
@@ -98,7 +99,7 @@ export const useAutomation = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      console.log('Creating automation job:', jobType);
+      logger.info('Creating automation job', { jobType });
 
       const { data, error } = await supabase
         .from('automation_jobs')

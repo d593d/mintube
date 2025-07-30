@@ -1,73 +1,185 @@
-# Welcome to your Lovable project
+# YouTube Content Automation Platform
 
-## Project info
+A modern, AI-powered platform for automating YouTube content creation workflows. This application provides end-to-end automation for faceless YouTube channels, including content ideation, script generation, voice synthesis, video assembly, and analytics tracking.
 
-**URL**: https://lovable.dev/projects/96cb4924-097b-4db7-b460-ecc6cb7ed70d
+## 🚀 Features
 
-## How can I edit this code?
+- **AI-Powered Content Generation**: Automated content ideas and script generation using OpenAI GPT-4
+- **Voice Synthesis**: Text-to-speech conversion with ElevenLabs integration
+- **Video Assembly**: Automated video creation and thumbnail generation
+- **Analytics Dashboard**: Comprehensive performance tracking and insights
+- **Automation Engine**: Configurable workflows for hands-free content creation
+- **Secure Authentication**: User management with Supabase Auth
+- **Real-time Updates**: Live progress tracking and notifications
 
-There are several ways of editing your application.
+## 🛠️ Technology Stack
 
-**Use Lovable**
+- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui
+- **Backend**: Supabase (PostgreSQL + Edge Functions)
+- **AI Services**: OpenAI GPT-4, ElevenLabs TTS
+- **State Management**: TanStack Query, React Hooks
+- **Testing**: Vitest, React Testing Library
+- **CI/CD**: GitHub Actions
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/96cb4924-097b-4db7-b460-ecc6cb7ed70d) and start prompting.
+## 📋 Prerequisites
 
-Changes made via Lovable will be committed automatically to this repo.
+- Node.js 18+ and npm
+- Supabase account and project
+- OpenAI API key
+- ElevenLabs API key (for voice synthesis)
 
-**Use your preferred IDE**
+## 🔧 Setup Instructions
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### 1. Clone and Install
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+```bash
+git clone <your-repo-url>
+cd <project-name>
+npm install
+```
 
-Follow these steps:
+### 2. Environment Configuration
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+Create a `.env` file in the root directory:
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+```env
+# Supabase Configuration
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
-# Step 3: Install the necessary dependencies.
-npm i
+# AI Service Configuration (for Edge Functions)
+OPENAI_API_KEY=your_openai_api_key
+ELEVENLABS_API_KEY=your_elevenlabs_api_key
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Development
+VITE_APP_ENV=development
+```
+
+### 3. Database Setup
+
+Run the Supabase migrations to set up the database schema:
+
+```bash
+# Install Supabase CLI if not already installed
+npm install -g supabase
+
+# Link your project
+supabase link --project-ref your-project-ref
+
+# Run migrations
+supabase db push
+```
+
+### 4. Development Server
+
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The application will be available at `http://localhost:8080`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 🧪 Testing
 
-**Use GitHub Codespaces**
+```bash
+# Run tests
+npm run test
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+# Run tests with UI
+npm run test:ui
 
-## What technologies are used for this project?
+# Run tests with coverage
+npm run test:coverage
+```
 
-This project is built with:
+## 🚀 Deployment
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Environment Variables for Production
 
-## How can I deploy this project?
+Set the following secrets in your deployment platform:
 
-Simply open [Lovable](https://lovable.dev/projects/96cb4924-097b-4db7-b460-ecc6cb7ed70d) and click on Share -> Publish.
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
 
-## Can I connect a custom domain to my Lovable project?
+### Supabase Edge Functions
 
-Yes, you can!
+Deploy the Edge Functions for AI integrations:
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+```bash
+supabase functions deploy generate-content-ideas
+supabase functions deploy generate-script
+supabase functions deploy text-to-speech
+supabase functions deploy generate-thumbnail
+supabase functions deploy optimize-seo
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Set the required environment variables in Supabase:
+
+```bash
+supabase secrets set OPENAI_API_KEY=your_openai_api_key
+supabase secrets set ELEVENLABS_API_KEY=your_elevenlabs_api_key
+```
+
+## 📚 Project Structure
+
+```
+src/
+├── components/          # React components
+│   ├── ui/             # shadcn/ui components
+│   └── ...             # Feature components
+├── hooks/              # Custom React hooks
+├── lib/                # Utility functions and configurations
+├── pages/              # Page components
+├── integrations/       # External service integrations
+└── test/               # Test utilities and setup
+
+supabase/
+├── migrations/         # Database migrations
+└── functions/          # Edge Functions for AI services
+```
+
+## 🔒 Security Features
+
+- Row Level Security (RLS) enabled on all database tables
+- Input validation and sanitization
+- Environment variable configuration for sensitive data
+- Error boundaries for graceful error handling
+- Comprehensive logging system
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run tests (`npm run test`)
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+## 📝 Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
+- `npm run test` - Run tests
+- `npm run test:ui` - Run tests with UI
+- `npm run test:coverage` - Run tests with coverage
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **Environment Variables**: Ensure all required environment variables are set
+2. **Supabase Connection**: Verify your Supabase URL and keys are correct
+3. **API Keys**: Check that your OpenAI and ElevenLabs API keys are valid
+4. **Database**: Run migrations if you encounter database errors
+
+### Getting Help
+
+- Check the [GitHub Issues](link-to-issues) for known problems
+- Review the [Supabase Documentation](https://supabase.com/docs)
+- Check the [OpenAI API Documentation](https://platform.openai.com/docs)
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

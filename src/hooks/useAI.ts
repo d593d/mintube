@@ -1,14 +1,38 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { 
+  validateAndSanitizeContentIdea, 
+  validateAndSanitizeScript, 
+  validateAndSanitizeVoice,
+  validateAIResponse,
+  aiContentIdeaResponseSchema,
+  aiScriptResponseSchema
+} from "@/lib/validation";
+import { logger } from "@/lib/logger";
 
 export const useAI = () => {
   const generateContentIdeas = async (niche: string, targetAudience: string, contentGoals: string) => {
-    const { data, error } = await supabase.functions.invoke('generate-content-ideas', {
-      body: { niche, targetAudience, contentGoals }
-    });
-    
-    if (error) throw error;
-    return data;
+    try {
+      // Validate and sanitize input
+      const sanitizedInput = validateAndSanitizeContentIdea({ niche, targetAudience, contentGoals });
+      
+      logger.info('Generating content ideas', { niche: sanitizedInput.niche });
+      
+      const { data, error } = await supabase.functions.invoke('generate-content-ideas', {
+        body: sanitizedInput
+      });
+      
+      if (error) throw error;
+      
+      // Validate AI response
+      const validatedData = validateAIResponse(aiContentIdeaResponseSchema, data);
+      
+      logger.info('Content ideas generated successfully', { count: validatedData.length });
+      return validatedData;
+    } catch (error) {
+      logger.error('Failed to generate content ideas', error);
+      throw error;
+    }
   };
 
   const generateScript = async (topic: string, duration: string, style: string, targetAudience: string, additionalNotes: string) => {
