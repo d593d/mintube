@@ -121,7 +121,22 @@ Don't forget to check out our video on lucid dreaming techniques - the link is r
           setScriptMetrics(result.metrics);
         }
         setGenerationProgress(100);
-        toast.success("AI script generated successfully!");
+        
+        // Save script for video creation
+        const scriptData = {
+          title: topic,
+          content: result.script,
+          duration: result.metrics?.readingTime || "5:00",
+          target_audience: targetAudience,
+          style: style
+        };
+        
+        // Save to localStorage for VideoAssembly integration
+        const savedScripts = JSON.parse(localStorage.getItem('generated_scripts') || '[]');
+        savedScripts.unshift(scriptData);
+        localStorage.setItem('generated_scripts', JSON.stringify(savedScripts.slice(0, 10))); // Keep latest 10
+        
+        toast.success("AI script generated and saved for video creation!");
       } else {
         throw new Error("Invalid response format");
       }
