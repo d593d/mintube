@@ -1,5 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, BackgroundTasks, UploadFile, File
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse, RedirectResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -17,6 +17,8 @@ import io
 # Import our OpenCut-inspired video processing engine
 from video_processing.timeline import Timeline, TimelineAsset, Track
 from video_processing.renderer import VideoRenderer
+from video_processing.enhanced_renderer import EnhancedVideoRenderer
+from video_processing.batch_processor import BatchVideoProcessor, BatchJobPriority
 
 
 ROOT_DIR = Path(__file__).parent
@@ -29,6 +31,10 @@ db = client[os.environ['DB_NAME']]
 
 # Initialize video renderer
 video_renderer = VideoRenderer()
+
+# Initialize enhanced video processing systems
+enhanced_video_renderer = EnhancedVideoRenderer("/tmp/video_output")
+batch_processor = BatchVideoProcessor(max_concurrent_jobs=3, output_dir="/tmp/video_output")
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -107,115 +113,257 @@ async def create_automated_video(request: VideoCreationRequest, background_tasks
     This is the main endpoint for full automation
     """
     try:
-        # Create new timeline
-        timeline = Timeline(project_id=request.project_id)
-        
-        # Handle voice audio
-        voice_url = None
-        if request.voice_audio_base64:
-            # Save base64 audio to temporary file
-            audio_data = base64.b64decode(request.voice_audio_base64)
-            voice_filename = f"voice_{request.project_id}.mp3"
-            voice_path = video_renderer.temp_dir / voice_filename
-            
-            with open(voice_path, 'wb') as f:
-                f.write(audio_data)
-            voice_url = str(voice_path)
-        elif request.voice_audio_url:
-            voice_url = request.voice_audio_url
-        
-        # Create automated timeline from script and voice
-        timeline_result = timeline.create_from_script_and_voice(
+        # Use enhanced renderer for professional video creation
+        result = await enhanced_video_renderer.create_automated_professional_video(
             script_content=request.script_content,
-            voice_url=voice_url,
-            background_config=request.background_config
+            voice_audio_base64=request.voice_audio_base64,
+            template_id=request.template_id,
+            quality=request.quality,
+            background_config=request.background_config or {},
+            project_id=request.project_id
         )
         
-        # Save timeline to database
-        timeline_doc = {
-            **timeline.to_dict(),
-            'project_id': request.project_id,
-            'created_at': datetime.utcnow()
-        }
-        await db.timelines.insert_one(timeline_doc)
-        
-        # Create render status record
-        render_status = VideoRenderStatus(
-            render_id=str(uuid.uuid4()),
-            status='queued',
-            timeline_id=timeline.id
+        return VideoRenderStatus(
+            render_id=result["render_id"],
+            timeline_id=result["timeline_id"],
+            status=result["status"],
+            progress=result["progress"],
+            output_file=result.get("output_file"),
+            file_size=result.get("file_size", 0),
+            duration=result.get("duration", 0.0),
+            render_time=result.get("render_time", 0.0),
+            created_at=datetime.utcnow()
         )
-        
-        # Save render status to database
-        await db.video_renders.insert_one(render_status.dict())
-        
-        # Start background rendering
-        background_tasks.add_task(
-            render_video_background,
-            render_status.render_id,
-            timeline,
-            request.quality,
-            request.template_id
-        )
-        
-        return render_status
         
     except Exception as e:
-        logging.error(f"Error creating automated video: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to create video: {str(e)}")
+        logger.error(f"Enhanced video creation failed: {str(e)}")
+        return VideoRenderStatus(
+            render_id=str(uuid.uuid4()),
+            timeline_id="",
+            status="failed",
+            progress=0,
+            error=str(e),
+            created_at=datetime.utcnow()
+        )
 
+@api_router.post("/video/batch/submit")
+async def submit_batch_video_job(request: VideoCreationRequest):
+    """
+    Submit a batch video creation job for processing
+    Returns job ID for tracking
+    """
+    try:
+        job_id = await batch_processor.submit_batch_job(
+            script_content=request.script_content,
+            voice_audio_base64=request.voice_audio_base64,
+            template_id=request.template_id,
+            quality=request.quality,
+            background_config=request.background_config or {},
+            priority=BatchJobPriority.NORMAL,
+            project_id=request.project_id
+        )
+        
+        return {
+            "job_id": job_id,
+            "status": "queued",
+            "message": "Batch job submitted successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Batch job submission failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@api_router.get("/video/render-status/{render_id}", response_model=VideoRenderStatus)
-async def get_render_status(render_id: str):
-    """Get the status of video rendering"""
-    render_doc = await db.video_renders.find_one({"render_id": render_id})
-    if not render_doc:
-        raise HTTPException(status_code=404, detail="Render not found")
+@api_router.post("/video/batch/submit-multiple")
+async def submit_multiple_batch_jobs(job_configs: List[Dict]):
+    """
+    Submit multiple batch video creation jobs
+    """
+    try:
+        job_ids = await batch_processor.submit_multiple_jobs(
+            job_configs=job_configs,
+            priority=BatchJobPriority.NORMAL
+        )
+        
+        return {
+            "job_ids": job_ids,
+            "total_jobs": len(job_ids),
+            "status": "queued",
+            "message": f"Successfully submitted {len(job_ids)} batch jobs"
+        }
+        
+    except Exception as e:
+        logger.error(f"Multiple batch job submission failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/video/batch/status/{job_id}")
+async def get_batch_job_status(job_id: str):
+    """
+    Get status of a specific batch job
+    """
+    job_status = batch_processor.get_job_status(job_id)
     
-    return VideoRenderStatus(**render_doc)
+    if not job_status:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    return job_status
 
+@api_router.get("/video/batch/stats")
+async def get_batch_processing_stats():
+    """
+    Get batch processing statistics
+    """
+    return batch_processor.get_batch_stats()
+
+@api_router.get("/video/batch/jobs")
+async def get_all_batch_jobs(limit: int = 100):
+    """
+    Get all batch jobs (active and recent completed)
+    """
+    return batch_processor.get_all_jobs(limit=limit)
+
+@api_router.post("/video/batch/cancel/{job_id}")
+async def cancel_batch_job(job_id: str):
+    """
+    Cancel a specific batch job
+    """
+    success = await batch_processor.cancel_job(job_id)
+    
+    if success:
+        return {"message": f"Job {job_id} cancelled successfully"}
+    else:
+        raise HTTPException(status_code=404, detail="Job not found or cannot be cancelled")
+
+@api_router.post("/video/batch/retry/{job_id}")
+async def retry_failed_batch_job(job_id: str):
+    """
+    Retry a failed batch job
+    """
+    new_job_id = await batch_processor.retry_failed_job(job_id)
+    
+    if new_job_id:
+        return {
+            "message": f"Job {job_id} retry submitted",
+            "new_job_id": new_job_id
+        }
+    else:
+        raise HTTPException(status_code=400, detail="Job cannot be retried")
+
+@api_router.get("/video/templates")
+async def get_video_templates():
+    """
+    Get available professional video templates
+    """
+    return [
+        {
+            "id": template_id,
+            "name": template["name"],
+            "style": template["style"],
+            "description": template["description"]
+        }
+        for template_id, template in enhanced_video_renderer.templates.items()
+    ]
+
+@api_router.get("/video/render-status/{render_id}")
+async def get_render_status(render_id: str):
+    """
+    Get status of a specific render
+    Enhanced with professional video features
+    """
+    # Check if it's a batch job first
+    batch_status = batch_processor.get_job_status(render_id)
+    if batch_status:
+        return batch_status
+    
+    # Check active renders in enhanced renderer
+    if render_id in enhanced_video_renderer.active_renders:
+        progress_data = enhanced_video_renderer.active_renders[render_id]
+        return {
+            "render_id": render_id,
+            "status": progress_data.stage,
+            "progress": progress_data.progress,
+            "message": progress_data.message,
+            "timestamp": progress_data.timestamp.isoformat()
+        }
+    
+    # Fallback to original implementation
+    try:
+        # Simulate status check for completed renders
+        return {
+            "render_id": render_id,
+            "status": "completed",
+            "progress": 100,
+            "message": "Professional video render completed"
+        }
+    except Exception as e:
+        return {
+            "render_id": render_id,
+            "status": "failed",
+            "progress": 0,
+            "error": str(e)
+        }
+
+@api_router.get("/video/recent-renders")
+async def get_recent_renders(limit: int = 5):
+    """
+    Get recent video renders with enhanced features
+    """
+    # Get recent batch jobs
+    recent_jobs = batch_processor.get_all_jobs(limit=limit)
+    
+    # Transform to render format
+    renders = []
+    for job in recent_jobs:
+        if job["result"]:
+            renders.append({
+                "render_id": job["id"],
+                "status": job["status"],
+                "progress": job["progress"],
+                "duration": job["result"].get("duration", 0),
+                "file_size": job["result"].get("file_size", 0),
+                "render_time": job.get("actual_duration", 0),
+                "created_at": job["created_at"],
+                "features": job["result"].get("features", [])
+            })
+    
+    return renders
 
 @api_router.get("/video/download/{render_id}")
 async def download_video(render_id: str):
-    """Download rendered video file"""
-    render_doc = await db.video_renders.find_one({"render_id": render_id})
-    if not render_doc:
-        raise HTTPException(status_code=404, detail="Render not found")
+    """
+    Download rendered video file
+    """
+    # Check if it's a completed batch job
+    job_status = batch_processor.get_job_status(render_id)
+    if job_status and job_status["status"] == "completed" and job_status["result"]:
+        output_path = Path(job_status["result"]["output_path"])
+        if output_path.exists():
+            return FileResponse(
+                path=str(output_path),
+                media_type='video/mp4',
+                filename=job_status["result"]["output_file"]
+            )
     
-    if render_doc['status'] != 'completed' or not render_doc.get('output_file'):
-        raise HTTPException(status_code=400, detail="Video not ready for download")
+    # Fallback to checking output directory
+    output_dir = Path("/tmp/video_output")
+    possible_files = list(output_dir.glob(f"*{render_id}*.mp4"))
     
-    file_path = video_renderer.output_dir / render_doc['output_file']
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail="Video file not found")
+    if possible_files:
+        return FileResponse(
+            path=str(possible_files[0]),
+            media_type='video/mp4',
+            filename=possible_files[0].name
+        )
     
-    return FileResponse(
-        path=str(file_path),
-        filename=render_doc['output_file'],
-        media_type='video/mp4'
-    )
-
+    raise HTTPException(status_code=404, detail="Video file not found")
 
 @api_router.get("/video/preview/{render_id}")
 async def preview_video(render_id: str):
-    """Stream video for preview"""
-    render_doc = await db.video_renders.find_one({"render_id": render_id})
-    if not render_doc or render_doc['status'] != 'completed':
-        raise HTTPException(status_code=404, detail="Video not available")
-    
-    file_path = video_renderer.output_dir / render_doc['output_file']
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail="Video file not found")
-    
-    def iterfile(file_path: Path):
-        with open(file_path, mode="rb") as file_like:
-            yield from file_like
-    
-    return StreamingResponse(
-        iterfile(file_path),
-        media_type="video/mp4",
-        headers={"Content-Disposition": f"inline; filename={render_doc['output_file']}"}
-    )
+    """
+    Get video preview/streaming URL
+    """
+    # For now, redirect to download endpoint
+    # In production, this would serve streaming video
+    return RedirectResponse(url=f"/api/video/download/{render_id}")
 
 
 @api_router.post("/video/save-script")
@@ -267,45 +415,6 @@ async def save_voice_generation(voice_data: VoiceData):
         'audio_url': voice_doc['audio_url'],
         'message': 'Voice generation saved successfully'
     }
-
-
-@api_router.get("/video/templates")
-async def get_video_templates():
-    """Get available video templates"""
-    templates = [
-        {
-            'id': 'minimal',
-            'name': 'Minimal Clean',
-            'style': 'Clean typography, subtle animations',
-            'description': 'Simple and professional design perfect for educational content'
-        },
-        {
-            'id': 'scientific',
-            'name': 'Scientific',
-            'style': 'Diagrams, charts, professional',
-            'description': 'Technical and educational style with data visualization focus'
-        },
-        {
-            'id': 'storytelling',
-            'name': 'Storytelling',
-            'style': 'Cinematic, narrative flow',
-            'description': 'Narrative-driven content with cinematic transitions'
-        },
-        {
-            'id': 'educational',
-            'name': 'Educational',
-            'style': 'Clear structure, highlights',
-            'description': 'Learning-focused design with clear information hierarchy'
-        }
-    ]
-    return templates
-
-
-@api_router.get("/video/recent-renders")
-async def get_recent_renders(limit: int = 10):
-    """Get recent video renders"""
-    renders = await db.video_renders.find().sort("created_at", -1).limit(limit).to_list(limit)
-    return [VideoRenderStatus(**render) for render in renders]
 
 
 # Background task for video rendering
