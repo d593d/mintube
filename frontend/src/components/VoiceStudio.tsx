@@ -59,7 +59,22 @@ export const VoiceStudio = () => {
         );
         const url = URL.createObjectURL(audioBlob);
         setAudioUrl(url);
-        toast.success("Voice generated successfully!");
+        
+        // Save voice data for video creation
+        const voiceData = {
+          text: text,
+          voice_id: selectedVoice,
+          speed: speed[0],
+          audioContent: result.audioContent,
+          duration: text.split(' ').length / 2.5 * 60 / 60 // Rough estimate in seconds
+        };
+        
+        // Save to localStorage for VideoAssembly integration
+        const savedVoices = JSON.parse(localStorage.getItem('generated_voices') || '[]');
+        savedVoices.unshift(voiceData);
+        localStorage.setItem('generated_voices', JSON.stringify(savedVoices.slice(0, 10))); // Keep latest 10
+        
+        toast.success("Voice generated and saved for video creation!");
       } else {
         throw new Error("No audio content received");
       }
